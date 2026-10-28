@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server';
 const Groq = require("groq-sdk");
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-});
+const DEFAULT_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+function getRequestedModel(modelParam) {
+    return modelParam || DEFAULT_MODEL;
+}
+
+function getGroqClient() {
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+        throw new Error("GROQ_API_KEY is missing. Add it to your .env.local file before using the chat API.");
+    }
+
+    return new Groq({ apiKey });
+}
 
 // Call Groq LLaMA chat API
-async function getGroqChatCompletion(content) {
+async function getGroqChatCompletion(content, modelParam) {
+    const groq = getGroqClient();
+    const model = getRequestedModel(modelParam);
+
     return groq.chat.completions.create({
         messages: [
             {
@@ -14,13 +29,13 @@ async function getGroqChatCompletion(content) {
                 content: content
             }
         ],
-        model: "llama-3.3-70b-versatile"
+        model
     });
 }
 
 // Process the response for clean code
-async function getCleanCode(content) {
-    const chatCompletion = await getGroqChatCompletion(content);
+async function getCleanCode(content, modelParam) {
+    const chatCompletion = await getGroqChatCompletion(content, modelParam);
     let message = chatCompletion.choices[0]?.message?.content || "";
 
     // Extract code inside ``` blocks
@@ -43,19 +58,19 @@ async function handleRequest(request) {
     const { searchParams } = new URL(request.url);
     const contentParam = searchParams.get('content');
     const codeParam = searchParams.get('code');
+    const modelParam = searchParams.get('model');
 
     if (codeParam) {
         // Return clean code as plain text
-        const response = await getCleanCode(codeParam);
+        const response = await getCleanCode(codeParam, modelParam);
         return new NextResponse(response, {
             headers: { "Content-Type": "text/plain" }
         });
-    } else {
-        // Return normal chat response as JSON
-        const response = await getGroqChatCompletion(contentParam || "Hi, how are you?");
-        const message = response.choices[0]?.message?.content || "";
-        return NextResponse.json({ message });
     }
+
+    const response = await getGroqChatCompletion(contentParam || "Hi, how are you?", modelParam);
+    const message = response.choices[0]?.message?.content || "";
+    return NextResponse.json({ message, model: getRequestedModel(modelParam) });
 }
 
 export async function GET(request) {
@@ -63,7 +78,10 @@ export async function GET(request) {
         return await handleRequest(request);
     } catch (error) {
         console.error(error);
-        return new NextResponse('An error occurred', { status: 500 });
+        return NextResponse.json(
+            { error: error.message || "An unexpected error occurred while generating a response." },
+            { status: 500 }
+        );
     }
 }
 
@@ -72,6 +90,9 @@ export async function POST(request) {
         return await handleRequest(request);
     } catch (error) {
         console.error(error);
-        return new NextResponse('An error occurred', { status: 500 });
+        return NextResponse.json(
+            { error: error.message || "An unexpected error occurred while generating a response." },
+            { status: 500 }
+        );
     }
 }

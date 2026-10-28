@@ -30,6 +30,20 @@ This project also includes a **chat feature** similar to ChatGPT, built to demon
 
 ## Usage
 
+1. Copy `.env.example` to `.env.local`.
+2. Add your Groq API key and optional model override:
+   ```bash
+   GROQ_API_KEY=your_api_key_here
+   GROQ_MODEL=llama-3.3-70b-versatile
+   NEXT_PUBLIC_GROQ_MODEL=llama-3.3-70b-versatile
+   ```
+3. Start the app:
+   ```bash
+   npm install
+   npm run dev
+   ```
+4. Open `http://localhost:3000`.
+
 - Launch the chat feature to interact with the Llama 3.3 API.
 - Integrate the API into other applications to enhance AI-driven capabilities.
 - Customizable UI using TailwindCSS for a seamless experience.
